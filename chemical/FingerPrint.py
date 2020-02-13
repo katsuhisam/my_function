@@ -25,3 +25,5 @@ def Hash2FingerPrint(hash_series):
     bits = hash2bits_pd(hash_series).replace({True:1, False:0})
     
     return bits
+
+

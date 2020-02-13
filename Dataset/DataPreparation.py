@@ -1,5 +1,7 @@
 import pandas as pd
 from chemical.FingerPrint import Smiles2Hash
+from sampling.sampling import sampleMaxmin
+from chemical.FingerPrint import Hash2FingerPrint
 # -*- coding: utf-8 -*-
 """
 Created on Tue Sep 17 12:00:07 2019
@@ -65,24 +67,44 @@ def HashAllDataDict(path, n_data, ic50col, smilecol, index=None, sep=','):
     return n_DF
 
 
-def tr_ts_split(data, idx_tr=None, train_size=None, test_num=None, random_state=None):
+def tr_ts_split(data, idx_tr=None, train_size=None, train_num=None, random_state=None):
     """
     split into train and test including specified data in train
     if you include specified data in train, you specify its index using parameter idx_tr
     """
     if train_size is not None:
-        sample = round(len(data) * train_size) - len(idx_tr)
+        sample = round(len(data) * train_size) - len([idx_tr])
         temp = data.drop(index = idx_tr)
         tr_temp = temp.sample(n = sample, random_state = random_state)
         
         tr = tr_temp.append(data.loc[idx_tr])
         ts = data.drop(index = tr.index)
         
-    elif test_num is not None:
+    elif train_num is not None:
         temp = data.drop(index = idx_tr)
-        ts = temp.sample(n = test_num, random_state = random_state)
+        tr_temp = temp.sample(n = train_num-len([idx_tr]), random_state = random_state)
         
-        tr = data.drop(index = ts.index)
+        tr = tr_temp.append(data.loc[idx_tr])
+        ts = data.drop(index = tr.index)
+    
+    return tr, ts
+
+
+def tr_ts_split_ks(data, idx_tr=None, train_num=None, random_state=0, fpcol='hash'):
+    """
+    split into train and test including specified data in train based on kennerdstones
+    if you include specified data in train, you specify its index using parameter idx_tr
+    """
+    datafp = Hash2FingerPrint(data[fpcol])
+    temp = datafp.drop(index = idx_tr)
+    n = train_num - len([idx_tr])
+    
+    idx = sampleMaxmin(x_org=temp, n_sample=n, seed=random_state)
+    idx = list(idx)
+    idx.append(idx_tr)
+    
+    tr = data.loc[idx]
+    ts = data.drop(index = idx)
     
     return tr, ts
 
