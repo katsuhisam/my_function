@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Sep  7 10:59:51 2020
+
+@author: matsumoto
+"""
 import pandas as pd
 import numpy as np
 import pickle
@@ -9,14 +16,8 @@ from chemical.FingerPrint import Smiles2Hash, Hash2FingerPrint
 from Dataset.DataPreparation import MakeTrain, tr_ts_split_ks
 from chem.mol2vec import Mol2Vec
 
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Jan 23 10:46:52 2020
 
-@author: matsumoto
-"""
-
-class AssayPrep:
+class AssayPrepTsFree:
     """
     Prepare test assay and train assay data
     Test is the assay which has the most compounds
@@ -41,15 +42,15 @@ class AssayPrep:
         self.ratios = {}
         self.radius = radius
         self.radius_path = radius_path
-        self.sc_dicts = {}
     
         self._ndata_assays(ndata)
         self._hash_from_smiles()
-        # self._mol2vec_from_smiles()
-        self._test_assign()
+        self._mol2vec_from_smiles()
+        # self._test_assign()
+        self._test_assign_selection()
+        self._train_assign_selection()
         self._assaycol_assign()
         self._sc_ratio()
-        self._sc_ratio_indiv()
         
     
     def _ndata_assays(self, ndata):
@@ -94,6 +95,42 @@ class AssayPrep:
             if val.shape[0] > tes_shape:
                 tes_shape = val.shape[0]
                 self.tes_key = key
+                
+                
+    def _test_assign_selection(self):
+        """
+        adopt the assay that has the most compounds
+        """
+        keys = [key for key in self.all_dict.keys()]
+        
+        print('-----Select Test Assay Number!-----')
+        print(keys)
+        
+        key = int(input())
+        if key not in keys:
+            print("Selected Assay isn't exist")
+        else:
+            self.tes_key = key
+            
+            
+    def _train_assign_selection(self):
+        
+        keys = [key for key in self.all_dict.keys() if key != self.tes_key]
+        
+        print('-----Select Training Assay Number!-----')
+        print('Choose [One Assay Number] or [all] option')
+        print(keys)
+        
+        key = input()
+        if key == 'all':
+            self.train_key = None
+        else:
+            key = int(key)
+            if key not in keys:
+                print("Selected Assay isn't exist")
+            else:
+                self.train_key = key
+        
                 
     def _assaycol_assign(self):
         """
@@ -141,8 +178,16 @@ class AssayPrep:
             
         #make train data dictionary
         tr_dict = all_dict.copy()
-        for k in tr_dict.keys():
-            tr_dict[k] = tr_dict[k].copy()
+        if self.train_key != None:
+            tr_ts_list = [self.train_key, self.tes_key]
+            for k in tr_dict.copy().keys():
+                if k not in tr_ts_list:
+                    del tr_dict[k]
+                else:
+                    tr_dict[k] = tr_dict[k].copy()
+        else:
+            for k in tr_dict.keys():
+                tr_dict[k] = tr_dict[k].copy()
         
         tr_dict[self.tes_key] = trofts.copy()
         
@@ -245,33 +290,7 @@ class AssayPrep:
                 pass
             
             self.all_dict_sc[key] = df
-            
     
-    def _sc_ratio_indiv(self):
-        
-        
-        for tes_key in self.all_dict.keys():
-            numer = self.all_dict[tes_key].loc[self.dupcomp]['pot.(nMol,IC50)']
-            
-            all_dict_sc = {}
-            for key in self.all_dict.keys():
-                ratio = numer / self.all_dict[key].loc[self.dupcomp]['pot.(nMol,IC50)']
-                
-                df = self.all_dict[key].copy()
-            
-                if key != tes_key:
-                    df['pot.(nMol,IC50)'] = df['pot.(nMol,IC50)'] * ratio
-                    df['pot.(log,IC50)'] = -np.log10(df['pot.(nMol,IC50)'] *10**-9)
-                elif key == tes_key:
-                    pass
-                
-                all_dict_sc[key] = df
-                
-            self.sc_dicts[tes_key] = all_dict_sc
-        
-        
-        
-
 
 
 if __name__ == '__main__':

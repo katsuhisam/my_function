@@ -21,7 +21,7 @@ class GASVR_yscale():
     
     def __init__(self, population=100, generations=100, use_scaling=False, seed=0, debug=False, 
                 maxcmp=None, use_roulette=True, use_penalty_GA=False, mutation_rate=0.2, nfold=None, 
-                searchrange=(-5,5), xname=None, yname=None, method='svr'):
+                searchrange=(-5,5), xname=None, yname=None, trace=None, method='svr'):
         self.pop  = population
         self.gens = generations
         self.scale = use_scaling
@@ -81,8 +81,12 @@ class GASVR_yscale():
         toolbox = base.Toolbox()
         
         #create gene expression
-        toolbox.register('attr_gene', random.uniform, self.searchrange[0], self.searchrange[1])
-        toolbox.register('individual', tools.initRepeat, creator.Individual, toolbox.attr_gene, n_variable)
+        if self.trace == None:
+            toolbox.register('attr_gene', random.uniform, self.searchrange[0], self.searchrange[1])
+            toolbox.register('individual', tools.initRepeat, creator.Individual, toolbox.attr_gene, n_variable)
+        elif self.trace != None:
+            toolbox.register('attr_gene', randompost, self.trace)
+            toolbox.register('individual', initRepeating, creator.Individual, toolbox.attr_gene, n_variable)
         toolbox.register('population', tools.initRepeat, list, toolbox.individual)
         
         #optimization strategy
@@ -247,6 +251,22 @@ def count_asy(data):
     count = len(set(data['Assay']))
     
     return count
+
+
+# Bayesian inference
+def randompost(trace, number=0):
+    """
+    number : assay number
+    """
+    rand = trace['alpha'][500:, number]
+    rand = rand.reshape(-1)
+    
+    rn = random.choice(rand)
+    
+    return rn
+
+def initRepeating(container, func, n_var):
+    return container(func(number = i) for i in range(n_var))
 
         
 if __name__ == 'main':

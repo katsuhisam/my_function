@@ -108,3 +108,13 @@ def tr_ts_split_ks(data, idx_tr=None, train_num=None, random_state=0, fpcol='has
     
     return tr, ts
 
+
+def idx_check(data):
+    new_data = pd.DataFrame()
+    
+    for asy_idx, assay in enumerate(data.Assay.unique()):
+        data_2 = data.query("Assay == @assay")
+        data_2["Assay_idx"] = asy_idx
+        new_data = pd.concat([new_data, data_2], axis=0)
+        
+    return new_data
