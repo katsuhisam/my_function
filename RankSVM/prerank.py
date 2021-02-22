@@ -17,12 +17,12 @@ from chemical.FingerPrint import Hash2FingerPrint
 #from Dataset.DataPreparation import tr_ts_split
 
 
-def rank_file(value, rank_col_name='pot.(log,IC50)', ascending=True):
+def rank_file(value, rank_col_name='pot.(log,IC50)', ascending=True, method='dense'):
     """
     make dataFrame 
     including Rank column
     """
-    r = value.rank(ascending=ascending)
+    r = value.rank(ascending=ascending, method=method)
     value['rank'] = r[rank_col_name]
     
     return value
@@ -51,14 +51,16 @@ def put_svmlight(value, rankcol='rank', qid='Assay', fname=None, hsh=False, smil
         print('Error : File name is None!')
         
 
-def tr_ts_rank(data):
+def tr_ts_rank(data, ascending=True, method='dense'):
     rank_d = pd.DataFrame()
     
     assay = set(data['Assay'])
     
     for asy in assay:
         d = data.query('Assay == @asy')
-        d_r = rank_file(d)
+        d_r = rank_file(d, ascending=ascending, method=method)
         
         rank_d = pd.concat([rank_d, d_r])
     return rank_d
+
+

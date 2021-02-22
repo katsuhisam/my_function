@@ -39,22 +39,23 @@ def cluster_distance_mx(data, x, assay='Assay'):
     Distance Matrix : M
 
     """
-    keys = list(set(data[assay]))
-
+    keys        = list(set(data[assay]))
+    keys_sorted = sorted(keys)
+    
     means = pd.DataFrame()
-    for idx, asy in enumerate(keys):
+    for idx, asy in enumerate(keys_sorted):
         x_portion = x[data[assay] == asy]
         mean      = x_portion.mean(axis=0)
         
         means     = pd.concat([means, mean], axis=1)
         
     means       = means.T
-    means.index = keys
+    means.index = keys_sorted
     
     # distance
     y = pdist(means)
     M = squareform(y)
-    M = pd.DataFrame(M, index=keys, columns=keys)
+    M = pd.DataFrame(M, index=keys_sorted, columns=keys_sorted)
     
     return M
 
@@ -74,3 +75,39 @@ def nearby_cluster(data, test_key, dx, threhold=4.0):
     
     data = data.query('Assay == @test_key or Assay == @using_idx')
     return data
+
+
+def nearby_cluster_out_train(data, test_key, dx, threhold=4.0):
+    
+    keys = dx.index
+    
+    using_idx = []
+    for key in keys:
+        if key == test_key:
+            continue
+        
+        n = dx.at[test_key, key]
+        if n < threhold:
+            using_idx.append(key)
+    
+    train_data = data.query('Assay == @using_idx')
+    return train_data
+
+
+def gravity_pointer(data, x, assay='Assay'):
+    
+    keys = list(set(data[assay]))
+
+    means = pd.DataFrame()
+    for idx, asy in enumerate(keys):
+        x_portion = x[data[assay] == asy]
+        mean      = x_portion.mean(axis=0)
+        
+        means     = pd.concat([means, mean], axis=1)
+        
+    means       = means.T
+    means.index = keys
+    
+    df_grav = pd.concat([x, means], axis=0)
+    
+    return df_grav

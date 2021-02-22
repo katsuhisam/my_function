@@ -6,6 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from svr.svr_wrapper import NuSVR_CV
 from evaluation.criteria import r2_rmse_mae
 from chemical.FingerPrint import Smiles2Hash, Hash2FingerPrint
+from chemical.FingerPrintChild import Hash2FingerPrintPlusAsyInfo
 from Dataset.DataPreparation import MakeTrain, tr_ts_split_ks
 from chem.mol2vec import Mol2Vec
 
@@ -223,6 +224,10 @@ class AssayPrep:
         elif xmode == 'm2v':
             xtr = train.loc[:, train.columns.str.contains('raidus')]
             xts = test.loc[:, test.columns.str.contains('raidus')]
+        elif xmode == 'ecfp_plus':
+            xtr = Hash2FingerPrintPlusAsyInfo(train).values
+            xts = Hash2FingerPrintPlusAsyInfo(test).values
+            
         ytr = train['pot.(log,IC50)'].values.reshape(-1,1)
         yts = test['pot.(log,IC50)'].values.reshape(-1,1)
         
