@@ -12,7 +12,7 @@ import numpy as np
 from sklearn.model_selection import LeaveOneOut, KFold
 from sklearn.datasets import dump_svmlight_file
 import pandas as pd
-from scipy.stats import spearmanr
+from scipy.stats import spearmanr, kendalltau
 
 
 class SVM_Rank():
@@ -67,7 +67,7 @@ class SVM_Rank():
 
 class SVM_Rank_CV():
     
-    def __init__(self, path=None, ascending=True, method='dense', nf=2, random_state=0, shuffle=True, kernel='linear'):
+    def __init__(self, path=None, ascending=True, method='dense', nf=2, random_state=0, shuffle=True, kernel='linear', eve_idx='kendalltau'):
         
         self.path = path
         self.file = '/Users/matsumoto/Research/Research/Rank-SVM'
@@ -79,6 +79,7 @@ class SVM_Rank_CV():
         self.seed       = random_state
         self.shuffle    = shuffle
         self.kernel     = kernel
+        self.eve_idx    = eve_idx
     
     
     # def fit_predict(self, inp_name=None, model_name=None, resultfile=None):
@@ -193,56 +194,60 @@ class SVM_Rank_CV():
         true_label = y_val.rank(ascending=self.ascending, method=self.method)
         pred_label = rankloo
         
-        correlation, pval = spearmanr(true_label, pred_label)
+        if self.eve_idx == 'spearman':
+            correlation, pval = spearmanr(true_label, pred_label)
+        elif self.eve_idx == 'kendalltau':
+            correlation, pval = kendalltau(true_label, pred_label)
+            
         self.rcv          = correlation
         
         
-    def CV_Rank_Nfold(self, x_val, y_val, qid_val, x_train=None, y_train=None, qid_train=None):
+    # def CV_Rank_Nfold(self, x_val, y_val, qid_val, x_train=None, y_train=None, qid_train=None):
     
-        kf = KFold(n_splits=self.nf, random_state=self.seed, shuffle=self.shuffle)
+    #     kf = KFold(n_splits=self.nf, random_state=self.seed, shuffle=self.shuffle)
         
-        qcv = []
-        for cv_train_index, cv_test_index in kf.split(x_val):
-            cv_x_train, cv_x_test       = x_val.iloc[cv_train_index,:], x_val.iloc[cv_test_index,:]
-            cv_qid_train, cv_qid_test   = qid_val[cv_train_index], qid_val[cv_test_index]
-            rank_cv_y_train = y_val[cv_train_index].rank(ascending=self.ascending, method=self.method)
-            rank_cv_y_test = y_val[cv_test_index].rank(ascending=self.ascending, method=self.method)
+    #     qcv = []
+    #     for cv_train_index, cv_test_index in kf.split(x_val):
+    #         cv_x_train, cv_x_test       = x_val.iloc[cv_train_index,:], x_val.iloc[cv_test_index,:]
+    #         cv_qid_train, cv_qid_test   = qid_val[cv_train_index], qid_val[cv_test_index]
+    #         rank_cv_y_train = y_val[cv_train_index].rank(ascending=self.ascending, method=self.method)
+    #         rank_cv_y_test = y_val[cv_test_index].rank(ascending=self.ascending, method=self.method)
             
-            train_index = list(cv_x_train.index) # preserve cv_train index
+    #         train_index = list(cv_x_train.index) # preserve cv_train index
             
-            if isempty(x_train):
-                rank_y_train = self.rank_labeling(y_train, qid_train)
+    #         if isempty(x_train):
+    #             rank_y_train = self.rank_labeling(y_train, qid_train)
             
-                cv_qid_train    = pd.concat([cv_qid_train, qid_train], axis=0) 
-                cv_x_train      = pd.concat([cv_x_train, x_train], axis=0)
-                rank_cv_y_train = pd.concat([rank_cv_y_train, rank_y_train], axis=0)
+    #             cv_qid_train    = pd.concat([cv_qid_train, qid_train], axis=0) 
+    #             cv_x_train      = pd.concat([cv_x_train, x_train], axis=0)
+    #             rank_cv_y_train = pd.concat([rank_cv_y_train, rank_y_train], axis=0)
             
-                cv_qid_train    = cv_qid_train.sort_values()
-                cv_x_train      = cv_x_train.reindex(index=cv_qid_train.index)
-                rank_cv_y_train = rank_cv_y_train.reindex(cv_qid_train.index)
+    #             cv_qid_train    = cv_qid_train.sort_values()
+    #             cv_x_train      = cv_x_train.reindex(index=cv_qid_train.index)
+    #             rank_cv_y_train = rank_cv_y_train.reindex(cv_qid_train.index)
             
-            self.put_svmlight(cv_x_train, rank_cv_y_train, qid=cv_qid_train, fname='train.txt')
-            self.put_svmlight(cv_x_test,  rank_cv_y_test,  qid=cv_qid_test,  fname='test.txt')
+    #         self.put_svmlight(cv_x_train, rank_cv_y_train, qid=cv_qid_train, fname='train.txt')
+    #         self.put_svmlight(cv_x_test,  rank_cv_y_test,  qid=cv_qid_test,  fname='test.txt')
             
-            self.run(inp_name='train.txt', model_name='model_train.txt')
-            self.predict(inpfile='train.txt', modelfile='model_train.txt', resultfile='predictions_train.txt')
-            self.predict(inpfile='test.txt',  modelfile='model_train.txt', resultfile='predictions_test.txt')
+    #         self.run(inp_name='train.txt', model_name='model_train.txt')
+    #         self.predict(inpfile='train.txt', modelfile='model_train.txt', resultfile='predictions_train.txt')
+    #         self.predict(inpfile='test.txt',  modelfile='model_train.txt', resultfile='predictions_test.txt')
             
-            res_train = pd.read_csv(os.path.join(self.path, 'predictions_train.txt'), sep=' ', header=None)
-            res_test  = pd.read_csv(os.path.join(self.path, 'predictions_test.txt'), sep=' ', header=None)
+    #         res_train = pd.read_csv(os.path.join(self.path, 'predictions_train.txt'), sep=' ', header=None)
+    #         res_test  = pd.read_csv(os.path.join(self.path, 'predictions_test.txt'), sep=' ', header=None)
             
-            res_train.index, res_test.index = cv_qid_train.index, cv_qid_test.index
+    #         res_train.index, res_test.index = cv_qid_train.index, cv_qid_test.index
             
-            cv_train_score = res_train.query('index == @train_index')
-            cv_test_score  = res_test
+    #         cv_train_score = res_train.query('index == @train_index')
+    #         cv_test_score  = res_test
             
-            true_label = rank_cv_y_test
-            pred_label = cv_test_score.rank(ascending=self.ascending, method=self.method)
+    #         true_label = rank_cv_y_test
+    #         pred_label = cv_test_score.rank(ascending=self.ascending, method=self.method)
         
-            correlation, pval = spearmanr(true_label, pred_label)
-            qcv.append(correlation)
+    #         correlation, pval = spearmanr(true_label, pred_label)
+    #         qcv.append(correlation)
             
-        self.rcv          = sum(qcv) / len(qcv) #average
+    #     self.rcv          = sum(qcv) / len(qcv) #average
 
     
     def rank_labeling(self, y_train, qid_train):

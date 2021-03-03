@@ -144,8 +144,8 @@ class NuSVRBase():
             metric = selectedScore
         
         kernelf = kernelf.lower()
-        if kernelf not in ['tanimoto', 'rbf']:
-            ValueError('Kernel must be either RBF and Tanimoto')
+        if kernelf not in ['tanimoto', 'rbf', 'linear']:
+            ValueError('Kernel must be either RBF and Tanimoto and linear')
             exit(1)
 
         if paramset is None:
@@ -201,6 +201,84 @@ class NuSVRBase():
         py1 = self.predict(xtrain)
         py2 = self.predict(xtest)
         return py1, py2
+
+
+class myNuSVR_CV(NuSVRBase):
+    """
+    cross validation version. wrapper class of Nu SVR
+    """
+    
+    def __init__(self, rseed=0, nf=5, paramset=None, verbose=False, kernelf='rbf', is_scaling=False, selectedScore=None):
+        super(myNuSVR_CV, self).__init__(verbose, selectedScore, kernelf, paramset, is_scaling)
+        self.nf         = nf
+        self.rng        = np.random.RandomState(rseed)
+        self.model      = self._set_model(kernelf, self.paramset, self.rng, self.nf, selectedScore) # not determined yet...
+    
+
+    def _set_model(self, kernelf, paramset, rng, nf, selectedScore):
+        """
+        Setting the models with parameters
+        """
+        if nf == 'loo':
+            cv = LeaveOneOut()
+        else:
+            cv = KFold(nf, shuffle=True, random_state=rng)
+
+        if selectedScore is None:
+            selectedScore = 'neg_mean_absolute_error'
+
+        if kernelf == 'tanimoto':
+            return gcv(NuSVR(kernel=funcTanimotoKernel), param_grid=paramset,
+                        cv=cv, scoring=selectedScore, n_jobs=-1)
+        elif kernelf == 'rbf':
+            return gcv(NuSVR(), param_grid=paramset, 
+                        cv=cv, scoring=selectedScore, n_jobs=1)
+        elif kernelf == 'linear':
+            return gcv(NuSVR(kernel='linear'), param_grid=paramset, 
+                        cv=cv, scoring=selectedScore, n_jobs=1)
+
+    def fit(self, x, y, weights=None):
+        """
+        Fit the cv model with the x and y
+        """
+        if isinstance(y, pd.Series):
+            y = y.values.reshape(-1,1)
+
+        if self.is_scaling:
+            xs = self.xscaler.fit_transform(x)
+            ys = self.yscaler.fit_transform(y)
+        else:
+            xs = x
+            ys = y
+
+        if weights is None:
+            self.model.fit(xs, ys.ravel())
+        else:
+            self.model.fit(xs, ys.ravel(), sample_weight=weights)
+
+        # optimized parameters
+        if self.kernelf == 'rbf':
+            self.params = dict(kernelf=self.kernelf, gamma=self.model.best_estimator_.gamma, nu=self.model.best_estimator_.nu, C=self.model.best_estimator_.C)
+            self.pmodel = NuSVR(nu=self.params['nu'], C=self.params['C'], gamma=self.params['gamma'])
+        elif self.kernelf == 'tanimoto':
+            self.params = dict(kernelf=self.kernelf, C=self.model.best_estimator_.C, nu=self.model.best_estimator_.nu)
+            #self.pmodel = NuSVR(kernel=funcTanimotoKernel, nu=self.params['nu'], C=self.params['C'])
+            self.pmodel = NuSVR(kernel=funcTanimotoSklearn, nu=self.params['nu'], C=self.params['C'])
+        elif self.kernelf == 'linear':
+            self.params = dict(kernelf=self.kernelf, C=self.model.best_estimator_.C, nu=self.model.best_estimator_.nu)
+            #self.pmodel = NuSVR(kernel=funcTanimotoKernel, nu=self.params['nu'], C=self.params['C'])
+            self.pmodel = NuSVR(kernel='linear', nu=self.params['nu'], C=self.params['C'])
+        # prediction by the best model
+        self.pmodel.fit(xs, ys.ravel())
+
+        YptrS = self.pmodel.predict(xs)
+        if self.is_scaling:
+            self.Yptr = self.yscaler.inverse_transform(YptrS.reshape(-1, 1))
+        else:
+            self.Yptr = YptrS
+
+        self.evaluate_r2, self.evaluate_rmse, self.evaluate_mae = r2_rmse_mae(yp=self.Yptr, yobs=y, verbose=self.verbose)
+
 
 
 class NuSVR_DCV(NuSVRBase):
